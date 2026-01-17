@@ -68,6 +68,19 @@ class AIRiskScoring {
         // Generate explanation
         const explanation = this._generateExplanation(signals, riskScore);
 
+        // Step 2: Tamper Ledger Hook (Additive & Fail-safe)
+        try {
+            if (riskScore > 70) {
+                const { recordTamperEvent } = require('./tamperLedgerService');
+                recordTamperEvent({
+                    evidenceId: metadata.evidenceId || "UNKNOWN",
+                    detectedBy: "AI",
+                    reason: explanation,
+                    riskScore: riskScore
+                });
+            }
+        } catch (_) { }
+
         return {
             riskScore,
             confidence: signals.length > 0 ? 0.85 : 0.95,

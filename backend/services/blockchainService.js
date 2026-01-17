@@ -292,8 +292,27 @@ class BlockchainService {
                 return action;
             }
         }
-
         return 'UNKNOWN';
+    }
+
+    /**
+     * Emit a tamper detection event on blockchain
+     * Step 3: Additive helper
+     */
+    async emitTamperDetected(evidenceId, detectedBy, reason, riskScore) {
+        if (!this.initialized) return null;
+
+        try {
+            console.log(`🔗 [Blockchain] Emitting TamperDetected for #${evidenceId}`);
+
+            // We use the existing TamperDetected signature from the contract
+            // evidenceId (uint256), verifier (address), expectedHash (bytes32), submittedHash (bytes32), timestamp (uint256)
+            // Note: This is an additive helper for future integration.
+            return { status: "ready_to_emit", evidenceId, detectedBy };
+        } catch (error) {
+            console.error('⚠️ Blockchain emission failed:', error.message);
+            return null;
+        }
     }
 }
 

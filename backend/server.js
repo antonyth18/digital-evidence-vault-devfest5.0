@@ -7,6 +7,7 @@ const blockchainService = require('./services/blockchainService');
 const { computeFileHash, computeStringHash, computeObjectHash } = require('./utils/crypto');
 const policyEngine = require('./services/policyEngine');
 const aiRiskScoring = require('./services/aiRiskScoring');
+const tamperLedgerService = require('./services/tamperLedgerService'); // Step 1: Import Ledger Service
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -303,6 +304,17 @@ app.post('/api/verify-blockchain', upload.single('file'), async (req, res) => {
                 });
             } else {
                 console.log('❌ TAMPER DETECTED');
+
+                // Step 2: Hook for Tamper Ledger (Verification mismatch)
+                try {
+                    tamperLedgerService.recordTamperEvent({
+                        evidenceId: evidenceId,
+                        detectedBy: "VERIFICATION",
+                        reason: `Hash mismatch. Expected: ${result.expectedHash}, Submitted: ${result.submittedHash}`,
+                        riskScore: 100
+                    });
+                } catch (_) { }
+
                 return res.json({
                     verified: false,
                     tampered: true,
@@ -379,6 +391,24 @@ app.post('/api/ai/risk-score', upload.single('file'), async (req, res) => {
             error: 'AI risk scoring failed',
             message: error.message
         });
+    }
+});
+
+// ============================================
+// STEP 4: TAMPER EVENT RETRIEVAL (Read-Only)
+// ============================================
+
+/**
+ * Get tamper events for a specific evidence
+ * GET /api/tamper-events/:evidenceId
+ */
+app.get('/api/tamper-events/:evidenceId', (req, res) => {
+    try {
+        const { evidenceId } = req.params;
+        const events = tamperLedgerService.getTamperEventsByEvidenceId(evidenceId);
+        res.json({ success: true, evidenceId, events });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to retrieve tamper events' });
     }
 });
 
