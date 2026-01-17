@@ -3,13 +3,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { useToast } from '../components/ui/Toast';
-import { Upload, FileText, CheckCircle, Loader2, X } from 'lucide-react';
+import { Upload, FileText, CheckCircle, Loader2, X, AlertTriangle } from 'lucide-react';
+import { api } from '../utils/api';
 
 
 export function UploadEvidence() {
     const [uploading, setUploading] = useState(false);
     const [step, setStep] = useState(1);
     const [file, setFile] = useState<File | null>(null);
+    const [caseId, setCaseId] = useState('');
+    const [evidenceType, setEvidenceType] = useState('');
+    const [collectedBy, setCollectedBy] = useState('');
+    const [uploadResult, setUploadResult] = useState<any>(null);
+    const [aiAnalysis, setAiAnalysis] = useState<any>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { addToast } = useToast();
 
@@ -26,16 +32,40 @@ export function UploadEvidence() {
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
-    const handleUpload = () => {
-        if (!file) return;
-        setUploading(true);
+    const handleUpload = async () => {
+        if (!file || !caseId) {
+            addToast("Case ID is required", "error");
+            return;
+        }
 
-        // Simulate complex hashing
-        setTimeout(() => {
+        setUploading(true);
+        try {
+            // 1. Run AI Analysis first (optional feature demo)
+            try {
+                const analysisRes = await api.analyzeRisk(file);
+                setAiAnalysis(analysisRes.analysis);
+            } catch (e) {
+                console.warn("AI analysis bypassed or failed");
+            }
+
+            // 2. Perform real blockchain registration
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('caseId', caseId);
+            formData.append('evidenceType', evidenceType || file.type.split('/')[0]);
+            formData.append('source', 'Web Portal');
+            formData.append('collectedBy', collectedBy || 'Unknown Collector');
+
+            const result = await api.registerEvidence(formData);
+
+            setUploadResult(result);
             setUploading(false);
             setStep(3);
             addToast("Evidence successfully anchored to blockchain", "success");
-        }, 2500);
+        } catch (error: any) {
+            setUploading(false);
+            addToast(error.message || "Upload failed", "error");
+        }
     };
 
     return (
@@ -89,17 +119,41 @@ export function UploadEvidence() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium dark:text-slate-200">Case ID</label>
-                                    <Input placeholder="Enter Case ID (e.g. CR-2024-XXXX)" className="dark:bg-slate-800 dark:border-slate-700 dark:text-white" />
+                                    <Input
+                                        placeholder="Enter Case ID (e.g. CR-2024-XXXX)"
+                                        className="dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                                        value={caseId}
+                                        onChange={e => setCaseId(e.target.value)}
+                                    />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium dark:text-slate-200">Evidence Type</label>
-                                    <Input placeholder="Video, Audio, Doc..." defaultValue={file?.type.split('/')[0] || ''} className="dark:bg-slate-800 dark:border-slate-700 dark:text-white" />
+                                    <Input
+                                        placeholder="Video, Audio, Doc..."
+                                        className="dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                                        value={evidenceType || file?.type.split('/')[0] || ''}
+                                        onChange={e => setEvidenceType(e.target.value)}
+                                    />
                                 </div>
                             </div>
                             <div className="space-y-2">
                                 <label className="text-sm font-medium dark:text-slate-200">Collector Identity</label>
-                                <Input readOnly value="OFFICER ID: 894421 (John Doe)" className="bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 dark:border-slate-700" />
+                                <Input
+                                    placeholder="Enter collector name or badge ID"
+                                    className="dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                                    value={collectedBy}
+                                    onChange={e => setCollectedBy(e.target.value)}
+                                />
                             </div>
+
+                            {aiAnalysis && aiAnalysis.riskScore > 30 && (
+                                <div className={`p-4 rounded-md text-sm flex gap-3 ${aiAnalysis.riskScore > 70 ? 'bg-red-50 border border-red-200 text-red-800' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
+                                    <div className="mt-0.5"><AlertTriangle className="w-4 h-4" /></div>
+                                    <div>
+                                        <strong>AI Warning:</strong> {aiAnalysis.explanation} (Risk Score: {aiAnalysis.riskScore}/100)
+                                    </div>
+                                </div>
+                            )}
                             <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md p-4 text-sm text-amber-800 dark:text-amber-200 flex gap-3">
                                 <div className="mt-0.5"><Loader2 className="w-4 h-4 animate-spin text-amber-600" /></div>
                                 <div>
@@ -130,20 +184,24 @@ export function UploadEvidence() {
                             </div>
                             <div>
                                 <h3 className="text-2xl font-bold text-emerald-900 dark:text-emerald-100">Evidence Anchored Successfully</h3>
-                                <p className="text-emerald-700 dark:text-emerald-300 mt-2">Transaction #0x71...B5f6 confirmed on blockchain.</p>
+                                <p className="text-emerald-700 dark:text-emerald-300 mt-2">Transaction #{uploadResult?.blockchain.txHash.substring(0, 10)}... confirmed on blockchain.</p>
                             </div>
                             <div className="bg-white/60 dark:bg-slate-800/60 p-6 rounded-lg text-left text-xs font-mono space-y-3 border border-emerald-100 dark:border-emerald-800 max-w-lg mx-auto shadow-sm">
+                                <div className="flex justify-between border-b border-emerald-100 dark:border-emerald-800 pb-2">
+                                    <span className="text-slate-500 dark:text-slate-400">Evidence ID:</span>
+                                    <span className="text-slate-900 dark:text-white font-bold">{uploadResult?.evidence.evidenceId}</span>
+                                </div>
                                 <div className="flex justify-between border-b border-emerald-100 dark:border-emerald-800 pb-2">
                                     <span className="text-slate-500 dark:text-slate-400">File Name:</span>
                                     <span className="text-slate-900 dark:text-white font-bold">{file?.name}</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-slate-500 dark:text-slate-400">Hash (SHA-256):</span>
-                                    <span className="text-slate-900 dark:text-white">8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b...</span>
+                                    <span className="text-slate-900 dark:text-white truncate ml-4">{uploadResult?.evidence.evidenceHash}</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-slate-500 dark:text-slate-400">TxID:</span>
-                                    <span className="text-slate-900 dark:text-white">0x71C7656EC7ab88b098defB751B7401B5f6d8976F</span>
+                                    <span className="text-slate-900 dark:text-white truncate ml-4">{uploadResult?.blockchain.txHash}</span>
                                 </div>
                                 <div className="flex justify-between pt-2 border-t border-emerald-100 dark:border-emerald-800">
                                     <span className="text-slate-500 dark:text-slate-400">Timestamp:</span>

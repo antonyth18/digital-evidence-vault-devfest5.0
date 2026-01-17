@@ -4,8 +4,39 @@ import { Badge } from '../components/ui/Badge';
 import { EvidenceStatusChart } from '../components/charts/EvidenceStatusChart';
 import { EvidenceTrendChart } from '../components/charts/EvidenceTrendChart';
 import { CollectorActivityChart } from '../components/charts/CollectorActivityChart';
+import { useEffect, useState } from 'react';
+import { api } from '../utils/api';
 
 export function Dashboard() {
+    const [stats, setStats] = useState<any>(null);
+    const [statusData, setStatusData] = useState<any[]>([]);
+    const [trendData, setTrendData] = useState<any[]>([]);
+    const [collectorData, setCollectorData] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchAllData = async () => {
+            try {
+                const [summary, status, trends, collectors] = await Promise.all([
+                    api.getDashboardSummary(),
+                    api.getAnalyticsStatus(),
+                    api.getAnalyticsTrends(),
+                    api.getAnalyticsCollectors()
+                ]);
+
+                setStats(summary);
+                setStatusData(status);
+                setTrendData(trends);
+                setCollectorData(collectors);
+                setLoading(false);
+            } catch (error) {
+                console.error('Failed to fetch dashboard data:', error);
+                setLoading(false);
+            }
+        };
+        fetchAllData();
+    }, []);
+
     return (
         <div className="space-y-8">
             <div>
@@ -21,8 +52,8 @@ export function Dashboard() {
                         <FileText className="h-4 w-4 text-slate-500 dark:text-slate-400" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold dark:text-white">1,284</div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">+12 added today</p>
+                        <div className="text-2xl font-bold dark:text-white">{loading ? '...' : (stats?.totalEvidence || 0)}</div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Live records from blockchain</p>
                     </CardContent>
                 </Card>
                 <Card className="dark:bg-slate-900 dark:border-slate-800">
@@ -31,8 +62,12 @@ export function Dashboard() {
                         <Shield className="h-4 w-4 text-emerald-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">99.8%</div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">1,281 items verified</p>
+                        <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                            {loading ? '...' : (stats?.totalEvidence > 0 ? (Math.round((stats.verifiedSafe / stats.totalEvidence) * 100) + '%') : '100%')}
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                            {loading ? '...' : stats?.verifiedSafe} items verified
+                        </p>
                     </CardContent>
                 </Card>
                 <Card className="dark:bg-slate-900 dark:border-slate-800">
@@ -41,8 +76,8 @@ export function Dashboard() {
                         <AlertTriangle className="h-4 w-4 text-amber-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-amber-600">3</div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">Requires attention</p>
+                        <div className="text-2xl font-bold text-amber-600">{loading ? '...' : (stats?.activeAlerts || 0)}</div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Tamper ledger detection</p>
                     </CardContent>
                 </Card>
                 <Card className="dark:bg-slate-900 dark:border-slate-800">
@@ -51,8 +86,12 @@ export function Dashboard() {
                         <Lock className="h-4 w-4 text-red-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-red-600 dark:text-red-400">0</div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">No critical breaches</p>
+                        <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+                            {loading ? '...' : (stats?.custodyBreaches || 0)}
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                            {stats?.custodyBreaches > 0 ? 'Action required' : 'No critical breaches'}
+                        </p>
                     </CardContent>
                 </Card>
             </div>
@@ -67,7 +106,7 @@ export function Dashboard() {
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <EvidenceTrendChart />
+                        <EvidenceTrendChart data={trendData} />
                     </CardContent>
                 </Card>
 
@@ -76,7 +115,7 @@ export function Dashboard() {
                         <CardTitle className="dark:text-white">Integrity Status Distribution</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <EvidenceStatusChart />
+                        <EvidenceStatusChart data={statusData} />
                     </CardContent>
                 </Card>
             </div>
@@ -87,7 +126,7 @@ export function Dashboard() {
                     <CardTitle className="dark:text-white">Top Collectors (Last 30 Days)</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <CollectorActivityChart />
+                    <CollectorActivityChart data={collectorData} />
                 </CardContent>
             </Card>
 
@@ -99,15 +138,29 @@ export function Dashboard() {
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-8">
-                            {[1, 2, 3, 4, 5].map((i) => (
-                                <div key={i} className="flex items-center">
-                                    <div className="ml-4 space-y-1">
-                                        <p className="text-sm font-medium leading-none dark:text-white">Evidence #EF-{200 + i} Uploaded</p>
-                                        <p className="text-sm text-slate-500 dark:text-slate-400">Officer John Doe • Station 4</p>
+                            {stats?.recentActivity?.length > 0 ? (
+                                stats.recentActivity.map((activity: any, i: number) => (
+                                    <div key={i} className="flex items-center">
+                                        <div className="ml-4 space-y-1">
+                                            <p className="text-sm font-medium leading-none dark:text-white">Evidence #{activity.id} {activity.action}</p>
+                                            <p className="text-sm text-slate-500 dark:text-slate-400">{activity.actor}</p>
+                                        </div>
+                                        <div className="ml-auto font-medium text-sm text-slate-500 dark:text-slate-400">
+                                            {new Date(activity.timestamp).toLocaleTimeString()}
+                                        </div>
                                     </div>
-                                    <div className="ml-auto font-medium text-sm text-slate-500 dark:text-slate-400">Today, 10:2{i} AM</div>
-                                </div>
-                            ))}
+                                ))
+                            ) : (
+                                [1, 2, 3, 4, 5].map((i) => (
+                                    <div key={i} className="flex items-center opacity-50">
+                                        <div className="ml-4 space-y-1">
+                                            <p className="text-sm font-medium leading-none dark:text-white">Mock Evidence #EF-{200 + i} Uploaded</p>
+                                            <p className="text-sm text-slate-500 dark:text-slate-400">Officer John Doe • Station 4</p>
+                                        </div>
+                                        <div className="ml-auto font-medium text-sm text-slate-500 dark:text-slate-400">Sample Data</div>
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </CardContent>
                 </Card>

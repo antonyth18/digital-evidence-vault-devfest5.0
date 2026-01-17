@@ -10,17 +10,7 @@ interface EvidenceTrendChartProps {
     data?: TrendData[];
 }
 
-const defaultData: TrendData[] = [
-    { date: 'Jan 09', uploads: 4 },
-    { date: 'Jan 10', uploads: 7 },
-    { date: 'Jan 11', uploads: 5 },
-    { date: 'Jan 12', uploads: 12 },
-    { date: 'Jan 13', uploads: 9 },
-    { date: 'Jan 14', uploads: 15 },
-    { date: 'Jan 15', uploads: 18 },
-];
-
-export function EvidenceTrendChart({ data = defaultData }: EvidenceTrendChartProps) {
+export function EvidenceTrendChart({ data = [] }: EvidenceTrendChartProps) {
     const { theme } = useTheme();
     const isDark = theme === 'dark';
 

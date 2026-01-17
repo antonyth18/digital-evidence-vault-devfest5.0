@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '../components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table';
 import { Badge } from '../components/ui/Badge';
@@ -6,32 +6,60 @@ import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select';
 import { Dialog } from '../components/ui/Dialog';
-import { Search, ShieldCheck, Download, ExternalLink } from 'lucide-react';
-import type { Evidence } from '../types';
-
-const mockEvidence: Evidence[] = [
-    { id: 'EV-2024-001', type: 'Video', source: 'CCTV-4', collectedBy: 'Officer K. Ryan', date: '2024-01-15', status: 'verified', hash: '0x8f...2a', size: '2.4 GB' },
-    { id: 'EV-2024-002', type: 'Document', source: 'Affidavit', collectedBy: 'Det. Sarah Lin', date: '2024-01-14', status: 'verified', hash: '0x7b...9c', size: '1.2 MB' },
-    { id: 'EV-2024-003', type: 'Image', source: 'Crime Scene', collectedBy: 'Forensic Unit', date: '2024-01-12', status: 'flagged', hash: '0x3c...1f', size: '12 MB' },
-    { id: 'EV-2024-004', type: 'Audio', source: 'Wiretap', collectedBy: 'Agent J. Smith', date: '2024-01-10', status: 'verified', hash: '0x1a...4d', size: '45 MB' },
-    { id: 'EV-2024-005', type: 'Document', source: 'Police Report', collectedBy: 'Officer K. Ryan', date: '2024-01-09', status: 'breached', hash: '0x9e...2b', size: '840 KB' },
-];
+import { Search, ShieldCheck, Download, History } from 'lucide-react';
+import { api } from '../utils/api';
 
 export function EvidenceVault() {
     const [search, setSearch] = useState('');
     const [typeFilter, setTypeFilter] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
-    const [selectedEvidence, setSelectedEvidence] = useState<Evidence | null>(null);
+    const [selectedEvidence, setSelectedEvidence] = useState<any | null>(null);
+    const [evidenceList, setEvidenceList] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [tamperEvents, setTamperEvents] = useState<any[]>([]);
 
-    const filteredEvidence = useMemo(() => {
-        return mockEvidence.filter(item => {
-            const matchesSearch = item.id.toLowerCase().includes(search.toLowerCase()) ||
-                item.collectedBy.toLowerCase().includes(search.toLowerCase());
-            const matchesType = typeFilter ? item.type === typeFilter : true;
-            const matchesStatus = statusFilter ? item.status === statusFilter : true;
-            return matchesSearch && matchesType && matchesStatus;
-        });
-    }, [search, typeFilter, statusFilter]);
+    useEffect(() => {
+        const fetchEvidence = async () => {
+            try {
+                const res = await api.getEvidence();
+                // Map backend format to frontend Evidence type if necessary
+                const mapped = res.evidence.map((e: any) => ({
+                    id: e.evidenceId,
+                    type: e.evidenceType,
+                    source: e.source,
+                    collectedBy: e.collectedBy,
+                    date: new Date(e.timestamp).toLocaleDateString(),
+                    status: 'verified', // Backend only stores valid uploads for now
+                    hash: e.evidenceHash,
+                    size: (e.fileSize / 1024 / 1024).toFixed(2) + ' MB',
+                    txHash: e.txHash
+                }));
+                setEvidenceList(mapped);
+                setLoading(false);
+            } catch (error) {
+                console.error('Failed to fetch evidence:', error);
+                setLoading(false);
+            }
+        };
+        fetchEvidence();
+    }, []);
+
+    const fetchTamperEvents = async (id: string) => {
+        try {
+            const res = await api.getTamperEvents(id);
+            setTamperEvents(res.events);
+        } catch (error) {
+            console.error('Failed to fetch tamper events:', error);
+        }
+    };
+
+    useEffect(() => {
+        if (selectedEvidence) {
+            fetchTamperEvents(selectedEvidence.id);
+        } else {
+            setTamperEvents([]);
+        }
+    }, [selectedEvidence]);
 
     return (
         <div className="space-y-6">
@@ -88,7 +116,15 @@ export function EvidenceVault() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {filteredEvidence.map((item) => (
+                        {loading ? (
+                            <TableRow><TableCell colSpan={6} className="text-center py-8">Loading evidence records...</TableCell></TableRow>
+                        ) : evidenceList.filter(item => {
+                            const matchesSearch = item.id.toLowerCase().includes(search.toLowerCase()) ||
+                                item.collectedBy.toLowerCase().includes(search.toLowerCase());
+                            const matchesType = typeFilter ? item.type === typeFilter : true;
+                            const matchesStatus = statusFilter ? item.status === statusFilter : true;
+                            return matchesSearch && matchesType && matchesStatus;
+                        }).map((item) => (
                             <TableRow
                                 key={item.id}
                                 className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 dark:border-slate-800 transition-colors"
@@ -106,13 +142,6 @@ export function EvidenceVault() {
                                 </TableCell>
                             </TableRow>
                         ))}
-                        {filteredEvidence.length === 0 && (
-                            <TableRow>
-                                <TableCell colSpan={6} className="text-center h-24 text-slate-500 dark:text-slate-400">
-                                    No evidence found matching filters.
-                                </TableCell>
-                            </TableRow>
-                        )}
                     </TableBody>
                 </Table>
             </Card>
@@ -156,6 +185,12 @@ export function EvidenceVault() {
                                 <span className="text-slate-500 text-xs uppercase tracking-wider">Collector</span>
                                 <p className="font-medium">{selectedEvidence.collectedBy}</p>
                             </div>
+                            <div className="space-y-1 col-span-2">
+                                <span className="text-slate-500 text-xs uppercase tracking-wider">Blockchain Transaction ID</span>
+                                <p className="font-mono text-xs text-slate-400 break-all bg-slate-50 dark:bg-slate-800 p-2 rounded mt-1 border border-slate-100 dark:border-slate-800">
+                                    {selectedEvidence?.txHash || 'N/A'}
+                                </p>
+                            </div>
                         </div>
 
                         <div className="space-y-2">
@@ -165,9 +200,40 @@ export function EvidenceVault() {
                             </div>
                         </div>
 
+                        {tamperEvents.length > 0 && (
+                            <div className="space-y-3 pt-2">
+                                <span className="text-slate-500 text-xs uppercase tracking-wider flex items-center gap-2">
+                                    <History className="w-3 h-3" /> Tamper Ledger Logs
+                                </span>
+                                <div className="space-y-2 max-h-40 overflow-y-auto">
+                                    {tamperEvents.map((event, idx) => (
+                                        <div key={idx} className="p-2 rounded bg-amber-50 border border-amber-100 text-[10px]">
+                                            <div className="flex justify-between font-bold text-amber-900 border-b border-amber-100 pb-1 mb-1">
+                                                <span>{event.detectedBy} DETECTION</span>
+                                                <span>{new Date(event.timestamp).toLocaleTimeString()}</span>
+                                            </div>
+                                            <p className="text-amber-800">{event.reason}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         <div className="flex justify-end gap-2 pt-2">
                             <Button variant="outline" onClick={() => setSelectedEvidence(null)}>Close</Button>
-                            <Button><ExternalLink className="w-4 h-4 mr-2" />View in Explorer</Button>
+                            <Button onClick={() => {
+                                const proof = {
+                                    evidenceId: selectedEvidence.id,
+                                    hash: selectedEvidence.hash,
+                                    transaction: selectedEvidence.txHash,
+                                    network: "Digital Evidence Vault v1.0 (Local Genesis)",
+                                    timestamp: selectedEvidence.date,
+                                    status: "Anchored & Immutable"
+                                };
+                                alert("BLOCKCHAIN PROOF:\n" + JSON.stringify(proof, null, 2));
+                            }}>
+                                <ShieldCheck className="w-4 h-4 mr-2" /> Verify Proof
+                            </Button>
                         </div>
                     </div>
                 )}

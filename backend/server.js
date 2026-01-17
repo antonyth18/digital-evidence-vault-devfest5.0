@@ -8,6 +8,7 @@ const { computeFileHash, computeStringHash, computeObjectHash } = require('./uti
 const policyEngine = require('./services/policyEngine');
 const aiRiskScoring = require('./services/aiRiskScoring');
 const tamperLedgerService = require('./services/tamperLedgerService'); // Step 1: Import Ledger Service
+const evidenceStorage = require('./services/evidenceStorage');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -19,7 +20,7 @@ app.use(express.json());
 // Configure multer for file uploads (memory storage for hashing)
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Initialize blockchain service
+// Initialize blockchain service and then start reporting
 let blockchainReady = false;
 blockchainService.initialize().then(ready => {
     blockchainReady = ready;
@@ -28,7 +29,22 @@ blockchainService.initialize().then(ready => {
     } else {
         console.log('⚠️  Running in MOCK mode - blockchain disabled');
     }
+
+    // Log final status after initialization
+    printServerStatus();
 });
+
+function printServerStatus() {
+    console.log('');
+    console.log('═══════════════════════════════════════════════════');
+    console.log('   Digital Evidence Vault - Backend Server Status');
+    console.log('═══════════════════════════════════════════════════');
+    console.log(`   Blockchain Integration: ${blockchainReady ? '✅ ENABLED' : '⚠️  DISABLED'}`);
+    console.log(`   Policy Engine: ${process.env.ENABLE_POLICY_ENGINE === 'true' ? '✅ ENABLED' : '⚠️  DISABLED'}`);
+    console.log(`   AI Risk Scoring: ${process.env.ENABLE_AI_SCORING === 'true' ? '✅ ENABLED' : '⚠️  DISABLED'}`);
+    console.log('═══════════════════════════════════════════════════');
+    console.log('');
+}
 
 // ============================================
 // ITEM #1: END-TO-END EVIDENCE REGISTRATION
@@ -75,6 +91,9 @@ app.post('/api/evidence/upload-blockchain', upload.single('file'), async (req, r
             };
 
             console.log('✅ Evidence registered:', evidenceMetadata.evidenceId);
+
+            // Persist evidence
+            evidenceStorage.saveEvidence(evidenceMetadata);
 
             // 4. Return blockchain proof to frontend
             return res.json({
@@ -395,6 +414,53 @@ app.post('/api/ai/risk-score', upload.single('file'), async (req, res) => {
 });
 
 // ============================================
+// ITEM #7: REAL-TIME DATA ENDPOINTS
+// ============================================
+
+/**
+ * Get all registered evidence
+ * GET /api/evidence
+ */
+app.get('/api/evidence', (req, res) => {
+    try {
+        const evidence = evidenceStorage.getAllEvidence();
+        res.json({ success: true, evidence });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to retrieve evidence' });
+    }
+});
+
+/**
+ * Get analytics summary
+ * GET /api/analytics/summary
+ */
+app.get('/api/analytics/summary', (req, res) => {
+    try {
+        const evidence = evidenceStorage.getAllEvidence();
+        const total = evidence.length;
+
+        const alerts = tamperLedgerService.getAllTamperEvents();
+        const activeAlerts = alerts.filter(a => a.riskScore >= 70).length;
+        const custodyBreaches = alerts.filter(a => a.detectedBy === 'VERIFICATION').length;
+
+        res.json({
+            totalEvidence: total,
+            verifiedSafe: total - activeAlerts,
+            activeAlerts: activeAlerts,
+            custodyBreaches: custodyBreaches,
+            recentActivity: evidence.slice(0, 5).map(e => ({
+                id: e.evidenceId,
+                action: 'Uploaded',
+                actor: e.collectedBy,
+                timestamp: e.timestamp
+            }))
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to retrieve analytics summary' });
+    }
+});
+
+// ============================================
 // STEP 4: TAMPER EVENT RETRIEVAL (Read-Only)
 // ============================================
 
@@ -412,40 +478,135 @@ app.get('/api/tamper-events/:evidenceId', (req, res) => {
     }
 });
 
+/**
+ * Get all alerts
+ * GET /api/alerts
+ */
+app.get('/api/alerts', (req, res) => {
+    try {
+        const alerts = tamperLedgerService.getAllTamperEvents();
+        res.json({ success: true, alerts });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to retrieve alerts' });
+    }
+});
+
+/**
+ * Get system audit log
+ * GET /api/audit-log
+ */
+app.get('/api/audit-log', async (req, res) => {
+    try {
+        const evidence = evidenceStorage.getAllEvidence();
+        const logs = [];
+
+        // 1. Add registration events
+        evidence.forEach(e => {
+            logs.push({
+                id: `REG-${e.evidenceId}`,
+                timestamp: e.timestamp,
+                actor: e.collectedBy,
+                action: 'Evidence Registered',
+                hash: e.evidenceHash,
+                details: `File: ${e.fileName} (${e.evidenceType})`
+            });
+        });
+
+        // 2. Add alerts from tamper ledger
+        const alerts = tamperLedgerService.getAllTamperEvents();
+        alerts.forEach(a => {
+            logs.push({
+                id: `ALR-${a.id}`,
+                timestamp: new Date(a.timestamp).toISOString(),
+                actor: a.detectedBy === 'AI' ? 'AI SENTRY' : 'BLOCKCHAIN VALIDATOR',
+                action: 'Integrity Alert Raised',
+                hash: 'SYSTEM_EVENT',
+                details: a.reason
+            });
+        });
+
+        // Sort by timestamp descending
+        logs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+        res.json({ success: true, logs });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to retrieve audit log' });
+    }
+});
+
 // ============================================
 // EXISTING MOCK ENDPOINTS (for compatibility)
 // ============================================
 
 // Analytics endpoints
 app.get('/api/analytics/status', (req, res) => {
-    res.json([
-        { name: 'Verified', value: 1281, color: '#10b981' },
-        { name: 'Flagged', value: 2, color: '#f59e0b' },
-        { name: 'Breached', value: 1, color: '#ef4444' }
-    ]);
+    try {
+        const evidence = evidenceStorage.getAllEvidence();
+        const alerts = tamperLedgerService.getAllTamperEvents();
+        const total = evidence.length;
+
+        const activeAlerts = alerts.filter(a => a.riskScore >= 70).length;
+        const custodyBreaches = alerts.filter(a => a.detectedBy === 'VERIFICATION').length;
+        const verified = Math.max(0, total - activeAlerts - custodyBreaches);
+
+        res.json([
+            { name: 'Verified', value: verified, color: '#10b981' },
+            { name: 'Flagged', value: activeAlerts, color: '#f59e0b' },
+            { name: 'Breached', value: custodyBreaches, color: '#ef4444' }
+        ]);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to retrieve status analytics' });
+    }
 });
 
 app.get('/api/analytics/trends', (req, res) => {
-    const data = [];
-    for (let i = 7; i >= 0; i--) {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        data.push({
-            date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-            uploads: Math.floor(Math.random() * 10) + 3
-        });
+    try {
+        const evidence = evidenceStorage.getAllEvidence();
+        const data = [];
+        for (let i = 6; i >= 0; i--) {
+            const date = new Date();
+            date.setDate(date.getDate() - i);
+            const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+            // Count uploads for this day
+            const dayStart = new Date(date.setHours(0, 0, 0, 0)).getTime();
+            const dayEnd = new Date(date.setHours(23, 59, 59, 999)).getTime();
+
+            const count = evidence.filter(e => {
+                const ts = new Date(e.timestamp).getTime();
+                return ts >= dayStart && ts <= dayEnd;
+            }).length;
+
+            data.push({
+                date: dateStr,
+                uploads: count
+            });
+        }
+        res.json(data);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to retrieve trend analytics' });
     }
-    res.json(data);
 });
 
 app.get('/api/analytics/collectors', (req, res) => {
-    res.json([
-        { name: 'Officer Ryan', count: 28 },
-        { name: 'Det. Lin', count: 24 },
-        { name: 'Off. Martinez', count: 19 },
-        { name: 'Det. Chen', count: 17 },
-        { name: 'Off. Patel', count: 14 }
-    ]);
+    try {
+        const evidence = evidenceStorage.getAllEvidence();
+        const collectorCounts = {};
+
+        evidence.forEach(e => {
+            const collector = e.collectedBy || 'Unknown';
+            collectorCounts[collector] = (collectorCounts[collector] || 0) + 1;
+        });
+
+        const data = Object.entries(collectorCounts)
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 5);
+
+        res.json(data);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to retrieve collector analytics' });
+    }
 });
 
 // Health check
@@ -461,18 +622,8 @@ app.get('/api/health', async (req, res) => {
 
 // Start server
 app.listen(PORT, () => {
-    console.log('');
-    console.log('═══════════════════════════════════════════════════');
-    console.log('   Digital Evidence Vault - Backend Server');
-    console.log('═══════════════════════════════════════════════════');
-    console.log(`   Server running on port ${PORT}`);
+    console.log(`🚀 Server starting on port ${PORT}...`);
     console.log(`   Health check: http://localhost:${PORT}/api/health`);
-    console.log('');
-    console.log('   Blockchain Integration: ' + (blockchainReady ? '✅ ENABLED' : '⚠️  DISABLED'));
-    console.log('   Policy Engine: ' + (process.env.ENABLE_POLICY_ENGINE === 'true' ? '✅ ENABLED' : '⚠️  DISABLED'));
-    console.log('   AI Risk Scoring: ' + (process.env.ENABLE_AI_SCORING === 'true' ? '✅ ENABLED' : '⚠️  DISABLED'));
-    console.log('═══════════════════════════════════════════════════');
-    console.log('');
 });
 
 module.exports = app;

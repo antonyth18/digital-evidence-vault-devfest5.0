@@ -12,13 +12,7 @@ interface EvidenceStatusChartProps {
     data?: StatusData[];
 }
 
-const defaultData: StatusData[] = [
-    { name: 'Verified', value: 1281, color: '#10b981' },
-    { name: 'Flagged', value: 2, color: '#f59e0b' },
-    { name: 'Breached', value: 1, color: '#ef4444' },
-];
-
-export function EvidenceStatusChart({ data = defaultData }: EvidenceStatusChartProps) {
+export function EvidenceStatusChart({ data = [] }: EvidenceStatusChartProps) {
     const { theme } = useTheme();
     const isDark = theme === 'dark';
 

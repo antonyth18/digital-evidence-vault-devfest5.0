@@ -1,11 +1,24 @@
-/**
- * Tamper Ledger Service
- * 
- * Append-only in-memory storage for tamper events.
- * Fail-safe implementation: all functions are designed to never throw.
- */
+const fs = require('fs');
+const path = require('path');
 
-const tamperEvents = [];
+const STORAGE_FILE = path.join(__dirname, '../data/tamper_ledger.json');
+
+// Ensure data directory exists
+const dataDir = path.dirname(STORAGE_FILE);
+if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+}
+
+// Initial load
+let tamperEvents = [];
+if (fs.existsSync(STORAGE_FILE)) {
+    try {
+        tamperEvents = JSON.parse(fs.readFileSync(STORAGE_FILE, 'utf8'));
+    } catch (e) {
+        console.error('Failed to load tamper ledger storage:', e);
+        tamperEvents = [];
+    }
+}
 
 /**
  * Record a new tamper event
@@ -30,6 +43,14 @@ function recordTamperEvent({ evidenceId, detectedBy, reason, riskScore }) {
         };
 
         tamperEvents.push(event);
+
+        // Persist to file
+        try {
+            fs.writeFileSync(STORAGE_FILE, JSON.stringify(tamperEvents, null, 2));
+        } catch (e) {
+            console.error('Failed to persist tamper event:', e);
+        }
+
         console.log(`🚨 [Tamper Ledger] Append: Evidence #${evidenceId} | Source: ${detectedBy}`);
         return event;
     } catch (error) {
@@ -40,20 +61,24 @@ function recordTamperEvent({ evidenceId, detectedBy, reason, riskScore }) {
 
 /**
  * Get tamper events for a specific evidence ID
- * @param {string} evidenceId - ID of the evidence
- * @returns {Array} - List of events (always returns an array)
+ * @param {string} evidenceId - Evidence ID to filter by
+ * @returns {Array} - List of events for this evidence
  */
-function getTamperEventsByEvidenceId(evidenceId) {
-    try {
-        if (!evidenceId) return [];
-        return tamperEvents.filter(e => e.evidenceId === evidenceId);
-    } catch (error) {
-        console.error('⚠️ Tamper ledger failed to retrieve events:', error.message);
-        return [];
-    }
+function getTamperEvents(evidenceId) {
+    if (!evidenceId) return [];
+    return tamperEvents.filter(event => event.evidenceId === evidenceId);
+}
+
+/**
+ * Get all recorded tamper events
+ * @returns {Array} - List of all events
+ */
+function getAllTamperEvents() {
+    return [...tamperEvents];
 }
 
 module.exports = {
     recordTamperEvent,
-    getTamperEventsByEvidenceId
+    getTamperEvents,
+    getAllTamperEvents
 };

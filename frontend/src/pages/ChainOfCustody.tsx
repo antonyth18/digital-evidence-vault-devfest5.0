@@ -1,11 +1,13 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
-import { Check, User, AlertCircle, Download, Search, Filter, Calendar } from 'lucide-react';
+import { Check, User, AlertCircle, Download, Search, Filter, Calendar, Loader2, Plus } from 'lucide-react';
 import { cn } from '../utils/cn';
+import { api } from '../utils/api';
+import { useToast } from '../components/ui/Toast';
 
 interface CustodyEvent {
     id: string;
@@ -22,91 +24,6 @@ interface CustodyEvent {
 interface TimelineEventProps extends CustodyEvent {
     isLast?: boolean;
 }
-
-// Mock data for different evidence items
-const mockCustodyData: Record<string, CustodyEvent[]> = {
-    'EV-2024-001': [
-        {
-            id: '1',
-            action: 'Evidence Transferred to Court Clerk',
-            actor: 'Officer Sarah Lin',
-            role: 'DETECTIVE → CLERK',
-            timestamp: '2024-01-16 14:30:00 UTC',
-            hash: '0x89b8e8f7a5d4c3b2a1234567890abcdef',
-            status: 'verified',
-            location: 'Main Courthouse',
-            details: 'Evidence sealed and transferred for trial preparation'
-        },
-        {
-            id: '2',
-            action: 'Forensic Analysis Completed',
-            actor: 'Dr. A. Gupta',
-            role: 'FORENSIC ANALYST',
-            timestamp: '2024-01-15 09:15:00 UTC',
-            hash: '0x7a4c2b9d8e6f5a4b3c2d1e0f9a8b7c6d',
-            status: 'verified',
-            location: 'Forensic Lab A',
-            details: 'DNA analysis completed, samples preserved'
-        },
-        {
-            id: '3',
-            action: 'Evidence Accessed (Read-Only)',
-            actor: 'DA Office (External)',
-            role: 'PROSECUTOR',
-            timestamp: '2024-01-14 18:45:00 UTC',
-            hash: '0x5e9f3d2c1b0a9e8d7c6b5a4f3e2d1c0b',
-            status: 'verified',
-            location: 'DA Office',
-            details: 'Case file review and documentation'
-        },
-        {
-            id: '4',
-            action: 'Initial Evidence Collection',
-            actor: 'Officer John Doe',
-            role: 'FIRST RESPONDER',
-            timestamp: '2024-01-14 16:20:00 UTC',
-            hash: '0x2b1a7c9d8e6f5a4b3c2d1e0f9a8b7c6d',
-            status: 'verified',
-            location: '42nd Street Crime Scene',
-            details: 'Evidence collected and sealed at scene'
-        }
-    ],
-    'EV-2024-002': [
-        {
-            id: '1',
-            action: 'Document Filed with Court',
-            actor: 'Clerk M. Johnson',
-            role: 'COURT CLERK',
-            timestamp: '2024-01-15 11:00:00 UTC',
-            hash: '0x3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f',
-            status: 'verified',
-            location: 'District Court',
-            details: 'Official court filing and indexing'
-        },
-        {
-            id: '2',
-            action: 'Document Notarized',
-            actor: 'Notary R. Williams',
-            role: 'NOTARY PUBLIC',
-            timestamp: '2024-01-14 15:30:00 UTC',
-            hash: '0x9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d',
-            status: 'verified',
-            location: 'City Notary Office',
-            details: 'Official notarization and seal applied'
-        },
-        {
-            id: '3',
-            action: 'Initial Affidavit Collection',
-            actor: 'Det. Sarah Lin',
-            role: 'DETECTIVE',
-            timestamp: '2024-01-14 09:00:00 UTC',
-            hash: '0x1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d',
-            status: 'verified',
-            location: 'Police Station 4',
-            details: 'Witness statement recorded and documented'
-        }
-    ]
-};
 
 function TimelineEvent({
     action,
@@ -205,20 +122,80 @@ function TimelineEvent({
 }
 
 export function ChainOfCustody() {
-    const [selectedEvidence, setSelectedEvidence] = useState('EV-2024-001');
+    const [evidenceItems, setEvidenceItems] = useState<any[]>([]);
+    const [selectedEvidence, setSelectedEvidence] = useState('');
+    const [custodyEvents, setCustodyEvents] = useState<CustodyEvent[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [eventsLoading, setEventsLoading] = useState(false);
+
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<'all' | 'verified' | 'breach'>('all');
     const [showFilters, setShowFilters] = useState(false);
 
-    const evidenceOptions = Object.keys(mockCustodyData).map(id => ({
-        label: id,
-        value: id
+    // Log event dialog state
+    const [showLogDialog, setShowLogDialog] = useState(false);
+    const [logAction, setLogAction] = useState('TRANSFERRED');
+    const [logHandler, setLogHandler] = useState('');
+    const [logDetails, setLogDetails] = useState('');
+    const [logging, setLogging] = useState(false);
+    const { addToast } = useToast();
+
+    // Fetch evidence list on mount
+    useEffect(() => {
+        const fetchEvidence = async () => {
+            try {
+                const data = await api.getEvidence();
+                if (data.success && data.evidence.length > 0) {
+                    setEvidenceItems(data.evidence);
+                    setSelectedEvidence(data.evidence[0].evidenceId);
+                }
+            } catch (error) {
+                console.error('Failed to fetch evidence:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchEvidence();
+    }, []);
+
+    // Fetch custody events when selected evidence changes
+    useEffect(() => {
+        if (!selectedEvidence) return;
+
+        const fetchCustody = async () => {
+            setEventsLoading(true);
+            try {
+                const data = await api.getCustodyEvents(selectedEvidence);
+                if (data.events) {
+                    // Map backend events to UI format
+                    const mappedEvents = data.events.map((e: any, idx: number) => ({
+                        id: String(idx),
+                        action: e.action,
+                        actor: e.handler || 'Authorized Handler',
+                        role: e.action === 'INITIAL_REGISTRATION' ? 'SYSTEM' : 'CUSTODIAN',
+                        timestamp: e.timestamp,
+                        hash: e.metadataHash || '0x00...000',
+                        status: e.action === 'VIOLATION' ? 'breach' : 'verified',
+                        details: e.details || 'Blockchain entry recorded.'
+                    }));
+                    setCustodyEvents(mappedEvents);
+                }
+            } catch (error) {
+                console.error('Failed to fetch custody events:', error);
+            } finally {
+                setEventsLoading(false);
+            }
+        };
+        fetchCustody();
+    }, [selectedEvidence]);
+
+    const evidenceOptions = evidenceItems.map(item => ({
+        label: `${item.evidenceId} - ${item.fileName}`,
+        value: item.evidenceId
     }));
 
     const filteredEvents = useMemo(() => {
-        const events = mockCustodyData[selectedEvidence] || [];
-
-        return events.filter(event => {
+        return custodyEvents.filter(event => {
             const matchesSearch = searchTerm === '' ||
                 event.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 event.actor.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -228,14 +205,13 @@ export function ChainOfCustody() {
 
             return matchesSearch && matchesStatus;
         });
-    }, [selectedEvidence, searchTerm, statusFilter]);
+    }, [custodyEvents, searchTerm, statusFilter]);
 
     const handleExport = () => {
-        const events = mockCustodyData[selectedEvidence] || [];
         const data = {
             evidenceId: selectedEvidence,
             exportDate: new Date().toISOString(),
-            events: events
+            events: custodyEvents
         };
 
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -246,14 +222,60 @@ export function ChainOfCustody() {
         a.click();
     };
 
+    const handleLogEvent = async () => {
+        if (!selectedEvidence || !logHandler.trim()) {
+            addToast('Please enter a handler name', 'error');
+            return;
+        }
+
+        setLogging(true);
+        try {
+            await api.logCustodyEvent(selectedEvidence, logAction, logHandler, { notes: logDetails });
+            addToast('Custody event logged successfully!', 'success');
+
+            // Refresh custody events
+            const data = await api.getCustodyEvents(selectedEvidence);
+            if (data.events) {
+                const mappedEvents = data.events.map((e: any, idx: number) => ({
+                    id: String(idx),
+                    action: e.action,
+                    actor: e.handler || 'Authorized Handler',
+                    role: e.action === 'INITIAL_REGISTRATION' ? 'SYSTEM' : 'CUSTODIAN',
+                    timestamp: e.timestamp,
+                    hash: e.metadataHash || '0x00...000',
+                    status: e.action === 'VIOLATION' ? 'breach' : 'verified',
+                    details: e.details || 'Blockchain entry recorded.'
+                }));
+                setCustodyEvents(mappedEvents);
+            }
+
+            // Reset form
+            setLogHandler('');
+            setLogDetails('');
+            setShowLogDialog(false);
+        } catch (error: any) {
+            addToast(error.message || 'Failed to log custody event', 'error');
+        } finally {
+            setLogging(false);
+        }
+    };
+
     const stats = useMemo(() => {
-        const events = mockCustodyData[selectedEvidence] || [];
         return {
-            total: events.length,
-            verified: events.filter(e => e.status === 'verified').length,
-            breached: events.filter(e => e.status === 'breach').length
+            total: custodyEvents.length,
+            verified: custodyEvents.filter(e => e.status === 'verified').length,
+            breached: custodyEvents.filter(e => e.status === 'breach').length
         };
-    }, [selectedEvidence]);
+    }, [custodyEvents]);
+
+    if (loading) {
+        return (
+            <div className="flex flex-col items-center justify-center py-20">
+                <Loader2 className="w-8 h-8 text-blue-500 animate-spin mb-4" />
+                <p className="text-slate-500">Loading custody records...</p>
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-5xl mx-auto space-y-6">
@@ -270,6 +292,7 @@ export function ChainOfCustody() {
                 <Button
                     variant="outline"
                     onClick={handleExport}
+                    disabled={!selectedEvidence || custodyEvents.length === 0}
                     className="dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                 >
                     <Download className="w-4 h-4 mr-2" />
@@ -308,6 +331,101 @@ export function ChainOfCustody() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Log New Event Card */}
+            {selectedEvidence && (
+                <Card className="dark:bg-slate-900 dark:border-slate-800">
+                    <CardHeader>
+                        <div className="flex items-center justify-between">
+                            <CardTitle className="text-base dark:text-white">Log New Custody Event</CardTitle>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setShowLogDialog(!showLogDialog)}
+                                className="dark:text-slate-400 dark:hover:text-white"
+                            >
+                                <Plus className="w-4 h-4 mr-2" />
+                                {showLogDialog ? 'Hide' : 'Show'} Form
+                            </Button>
+                        </div>
+                    </CardHeader>
+                    {showLogDialog && (
+                        <CardContent className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium dark:text-slate-200">
+                                        Action Type
+                                    </label>
+                                    <Select
+                                        value={logAction}
+                                        onChange={(e) => setLogAction(e.target.value)}
+                                        options={[
+                                            { label: 'Transferred', value: 'TRANSFERRED' },
+                                            { label: 'Accessed', value: 'ACCESSED' },
+                                            { label: 'Analyzed', value: 'ANALYZED' },
+                                            { label: 'Verified', value: 'VERIFIED' },
+                                            { label: 'Sealed', value: 'SEALED' }
+                                        ]}
+                                        className="dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium dark:text-slate-200">
+                                        Handler Name *
+                                    </label>
+                                    <Input
+                                        placeholder="Officer name or badge ID"
+                                        value={logHandler}
+                                        onChange={(e) => setLogHandler(e.target.value)}
+                                        className="dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium dark:text-slate-200">
+                                        Details (Optional)
+                                    </label>
+                                    <Input
+                                        placeholder="Additional notes..."
+                                        value={logDetails}
+                                        onChange={(e) => setLogDetails(e.target.value)}
+                                        className="dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex justify-end gap-2">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                        setLogHandler('');
+                                        setLogDetails('');
+                                        setShowLogDialog(false);
+                                    }}
+                                    className="dark:border-slate-700 dark:text-slate-300"
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    onClick={handleLogEvent}
+                                    disabled={logging || !logHandler.trim()}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                                >
+                                    {logging ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                            Logging to Blockchain...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Plus className="w-4 h-4 mr-2" />
+                                            Log Event
+                                        </>
+                                    )}
+                                </Button>
+                            </div>
+                        </CardContent>
+                    )}
+                </Card>
+            )}
 
             {/* Filters */}
             <Card className="dark:bg-slate-900 dark:border-slate-800">
@@ -377,11 +495,15 @@ export function ChainOfCustody() {
             <Card className="dark:bg-slate-900 dark:border-slate-800">
                 <CardHeader>
                     <CardTitle className="dark:text-white">
-                        Evidence Timeline - {selectedEvidence}
+                        Evidence Timeline - {selectedEvidence || 'No Evidence Selected'}
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="p-6">
-                    {filteredEvents.length > 0 ? (
+                    {eventsLoading ? (
+                        <div className="flex justify-center py-10">
+                            <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+                        </div>
+                    ) : filteredEvents.length > 0 ? (
                         <div className="space-y-0">
                             {filteredEvents.map((event, index) => (
                                 <TimelineEvent
@@ -395,7 +517,7 @@ export function ChainOfCustody() {
                         <div className="text-center py-12">
                             <AlertCircle className="w-12 h-12 text-slate-400 dark:text-slate-600 mx-auto mb-4" />
                             <p className="text-slate-500 dark:text-slate-400">
-                                No events found matching your filters
+                                {selectedEvidence ? 'No events found on the blockchain for this item' : 'Select an evidence item to view its history'}
                             </p>
                         </div>
                     )}

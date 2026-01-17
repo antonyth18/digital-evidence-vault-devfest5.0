@@ -11,15 +11,7 @@ interface CollectorActivityChartProps {
     data?: CollectorData[];
 }
 
-const defaultData: CollectorData[] = [
-    { name: 'Officer Ryan', count: 28 },
-    { name: 'Det. Lin', count: 24 },
-    { name: 'Forensic Unit', count: 19 },
-    { name: 'Agent Smith', count: 15 },
-    { name: 'Officer Doe', count: 12 },
-];
-
-export function CollectorActivityChart({ data = defaultData }: CollectorActivityChartProps) {
+export function CollectorActivityChart({ data = [] }: CollectorActivityChartProps) {
     const { theme } = useTheme();
     const isDark = theme === 'dark';
     const [activeIndex, setActiveIndex] = useState<number | null>(null);
