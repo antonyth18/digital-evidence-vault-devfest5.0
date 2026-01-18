@@ -29,52 +29,58 @@ export function Sidebar() {
     const { theme, toggleTheme } = useTheme();
 
     return (
-        <div className="flex flex-col w-64 bg-slate-900 dark:bg-slate-950 text-white min-h-screen border-r border-slate-800 dark:border-slate-900">
-            <div className="p-6 border-b border-slate-800 dark:border-slate-900">
-                <h1 className="text-lg font-bold tracking-wider flex items-center gap-2">
-                    <ShieldCheck className="w-6 h-6 text-emerald-400" />
-                    <span>SENTINEL</span>
+        <div className="flex flex-col w-[280px] bg-slate-50/80 dark:bg-black/80 backdrop-blur-xl border-r border-slate-200/50 dark:border-white/10 min-h-screen z-50">
+            <div className="p-8 pb-4">
+                <h1 className="text-xl font-semibold tracking-tight flex items-center gap-3 text-slate-900 dark:text-white">
+                    <div className="p-2 bg-brand-blue rounded-xl shadow-lg shadow-brand-blue/20">
+                         <ShieldCheck className="w-5 h-5 text-white" />
+                    </div>
+                    <span>Sentinel</span>
                 </h1>
-                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 uppercase tracking-widest">Evidence Integrity</p>
+                <p className="text-[11px] font-medium text-slate-400 dark:text-slate-500 mt-2 ml-1 uppercase tracking-widest pl-12">Evidence Integrity</p>
             </div>
-            <nav className="flex-1 p-4 space-y-1">
+
+            <nav className="flex-1 px-4 py-6 space-y-1">
                 {navigation.map((item) => (
                     <NavLink
                         key={item.name}
                         to={item.href}
                         className={({ isActive }) => cn(
-                            "flex items-center px-4 py-3 text-sm font-medium rounded-md transition-colors",
+                            "group flex items-center px-4 py-2.5 text-[13px] font-medium rounded-xl transition-all duration-200 ease-out",
                             isActive
-                                ? "bg-slate-800 dark:bg-slate-900 text-white border-l-4 border-emerald-500"
-                                : "text-slate-400 dark:text-slate-500 hover:bg-slate-800 dark:hover:bg-slate-900 hover:text-white"
+                                ? "bg-white dark:bg-white/10 text-brand-blue shadow-apple-sm dark:text-white"
+                                : "text-slate-500 dark:text-slate-400 hover:bg-white/50 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white"
                         )}
                     >
-                        <item.icon className="w-5 h-5 mr-3" />
-                        {item.name}
+                        {({ isActive }) => (
+                            <>
+                                <item.icon className={cn(
+                                    "w-[18px] h-[18px] mr-3 transition-colors",
+                                    isActive ? "text-brand-blue dark:text-white" : "text-slate-400 group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300"
+                                )} />
+                                {item.name}
+                            </>
+                        )}
                     </NavLink>
                 ))}
             </nav>
 
-            {/* Theme Toggle */}
-            <div className="p-4 border-t border-slate-800 dark:border-slate-900 space-y-3">
+            {/* Theme Toggle & Status */}
+            <div className="p-6 border-t border-slate-200/50 dark:border-white/5 space-y-4">
                 <button
                     onClick={toggleTheme}
-                    className="w-full flex items-center justify-between px-4 py-2 rounded-md bg-slate-800 dark:bg-slate-900 hover:bg-slate-700 dark:hover:bg-slate-800 transition-colors text-sm"
+                    className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl bg-white dark:bg-white/5 border border-slate-200/50 dark:border-white/5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-white/10 transition-all shadow-sm"
                 >
-                    <span className="text-slate-300 dark:text-slate-400">Theme</span>
+                    <span>Appearance</span>
                     <div className="flex items-center gap-2">
                         {theme === 'dark' ? (
-                            <Moon className="w-4 h-4 text-slate-400" />
+                            <Moon className="w-3.5 h-3.5" />
                         ) : (
-                            <Sun className="w-4 h-4 text-amber-400" />
+                            <Sun className="w-3.5 h-3.5 text-amber-500" />
                         )}
                     </div>
                 </button>
 
-                <div className="flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-xs text-slate-400 dark:text-slate-500 font-mono">NET: MAINNET-BETA</span>
-                </div>
             </div>
         </div>
     );

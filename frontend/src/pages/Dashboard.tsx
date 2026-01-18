@@ -51,17 +51,17 @@ export function Dashboard() {
                         <CardTitle className="text-sm font-medium dark:text-slate-200">Total Evidence</CardTitle>
                         <FileText className="h-4 w-4 text-slate-500 dark:text-slate-400" />
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="p-0">
                         <div className="text-2xl font-bold dark:text-white">{loading ? '...' : (stats?.totalEvidence || 0)}</div>
                         <p className="text-xs text-slate-500 dark:text-slate-400">Live records from blockchain</p>
                     </CardContent>
                 </Card>
-                <Card className="dark:bg-slate-900 dark:border-slate-800">
-                    <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                <Card className="p-6 dark:bg-slate-900 dark:border-slate-800">
+                    <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 p-0">
                         <CardTitle className="text-sm font-medium dark:text-slate-200">Verified Safe</CardTitle>
                         <Shield className="h-4 w-4 text-emerald-500" />
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="p-0">
                         <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
                             {loading ? '...' : (stats?.totalEvidence > 0 ? (Math.round((stats.verifiedSafe / stats.totalEvidence) * 100) + '%') : '100%')}
                         </div>
@@ -70,22 +70,22 @@ export function Dashboard() {
                         </p>
                     </CardContent>
                 </Card>
-                <Card className="dark:bg-slate-900 dark:border-slate-800">
-                    <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                <Card className="p-6 dark:bg-slate-900 dark:border-slate-800">
+                    <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 p-0">
                         <CardTitle className="text-sm font-medium dark:text-slate-200">Active Alerts</CardTitle>
                         <AlertTriangle className="h-4 w-4 text-amber-500" />
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="p-0">
                         <div className="text-2xl font-bold text-amber-600">{loading ? '...' : (stats?.activeAlerts || 0)}</div>
                         <p className="text-xs text-slate-500 dark:text-slate-400">Tamper ledger detection</p>
                     </CardContent>
                 </Card>
-                <Card className="dark:bg-slate-900 dark:border-slate-800">
-                    <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                <Card className="p-6 dark:bg-slate-900 dark:border-slate-800">
+                    <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0 p-0">
                         <CardTitle className="text-sm font-medium dark:text-slate-200">Custody Breaches</CardTitle>
                         <Lock className="h-4 w-4 text-red-500" />
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="p-0">
                         <div className="text-2xl font-bold text-red-600 dark:text-red-400">
                             {loading ? '...' : (stats?.custodyBreaches || 0)}
                         </div>
@@ -132,11 +132,11 @@ export function Dashboard() {
 
             {/* Recent Activity & System Status */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-                <Card className="col-span-4 dark:bg-slate-900 dark:border-slate-800">
-                    <CardHeader>
+                <Card className="col-span-4 p-6 dark:bg-slate-900 dark:border-slate-800">
+                    <CardHeader className="p-0 pb-4">
                         <CardTitle className="dark:text-white">Recent Activity</CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="p-0">
                         <div className="space-y-8">
                             {stats?.recentActivity?.length > 0 ? (
                                 stats.recentActivity.map((activity: any, i: number) => (
@@ -164,11 +164,11 @@ export function Dashboard() {
                         </div>
                     </CardContent>
                 </Card>
-                <Card className="col-span-3 dark:bg-slate-900 dark:border-slate-800">
-                    <CardHeader>
+                <Card className="col-span-3 p-6 dark:bg-slate-900 dark:border-slate-800">
+                    <CardHeader className="p-0 pb-4">
                         <CardTitle className="dark:text-white">System Status</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
+                    <CardContent className="space-y-4 p-0">
                         <div className="flex items-center justify-between">
                             <span className="text-sm font-medium dark:text-slate-200">Blockchain Node</span>
                             <Badge variant="success">Active</Badge>

@@ -73,7 +73,7 @@ export function EvidenceVault() {
                 </div>
             </div>
 
-            <Card className="p-4 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+            <Card className="p-4 bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 relative z-20 overflow-visible">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="relative md:col-span-2">
                         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-500" />
