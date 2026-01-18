@@ -1,7 +1,11 @@
+import { useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { Outlet } from 'react-router-dom';
+import { Menu } from 'lucide-react';
 
 export function Layout() {
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+
     return (
         <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-black font-sans text-slate-900 dark:text-slate-100 selection:bg-brand-blue selection:text-white relative">
             {/* Ambient Background Gradients */}
@@ -11,9 +15,20 @@ export function Layout() {
                 <div className="absolute bottom-[-10%] left-[20%] w-[30%] h-[30%] bg-purple-500/30 dark:bg-purple-500/20 rounded-full blur-[120px] opacity-70 animate-blob animation-delay-4000" />
             </div>
 
-            <Sidebar />
+            <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+            {/* Mobile Header Toggle */}
+            <div className="md:hidden fixed top-4 left-4 z-40">
+                <button
+                    onClick={() => setSidebarOpen(true)}
+                    className="p-2 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm text-slate-600 dark:text-slate-300"
+                >
+                    <Menu className="w-5 h-5" />
+                </button>
+            </div>
+
             <main className="flex-1 overflow-y-auto overflow-x-hidden transition-all duration-300 z-10 relative">
-                <div className="container max-w-7xl mx-auto px-8 py-12 md:px-16 md:py-16">
+                <div className="container max-w-7xl mx-auto px-4 py-20 md:px-16 md:py-16">
                      <div className="animate-fade-in-up space-y-8">
                         <Outlet />
                      </div>

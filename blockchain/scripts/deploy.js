@@ -62,28 +62,38 @@ async function main() {
         JSON.stringify(deploymentInfo, null, 2)
     );
 
-    // Create backend .env file
+    // Create or update backend .env file
     const backendEnvPath = path.join(__dirname, '../../backend/.env');
-    const envContent = `PORT=3001
+    let existingEnv = {};
+    if (fs.existsSync(backendEnvPath)) {
+        const content = fs.readFileSync(backendEnvPath, 'utf8');
+        content.split('\n').forEach(line => {
+            const match = line.match(/^([^=]+)=(.*)$/);
+            if (match) {
+                existingEnv[match[1]] = match[2];
+            }
+        });
+    }
 
-# Blockchain Configuration
-BLOCKCHAIN_RPC_URL=http://127.0.0.1:8545
-CONTRACT_ADDRESS=${contractAddress}
-PRIVATE_KEY=${deployer.privateKey || ''}
+    const newEnv = {
+        ...existingEnv,
+        PORT: '3001',
+        BLOCKCHAIN_RPC_URL: 'http://127.0.0.1:8545',
+        CONTRACT_ADDRESS: contractAddress,
+        PRIVATE_KEY: deployer.privateKey || '',
+        VERIFIER1_KEY: verifier1.privateKey || '',
+        VERIFIER2_KEY: verifier2.privateKey || '',
+        VERIFIER3_KEY: verifier3.privateKey || '',
+        NETWORK: 'local',
+        ENABLE_POLICY_ENGINE: 'true',
+        ENABLE_AI_SCORING: 'true',
+        AI_RISK_THRESHOLD: '70'
+    };
 
-# Verifier Keys (for attestation)
-VERIFIER1_KEY=${verifier1.privateKey || ''}
-VERIFIER2_KEY=${verifier2.privateKey || ''}
-VERIFIER3_KEY=${verifier3.privateKey || ''}
-
-# Network
-NETWORK=local
-
-# Features
-ENABLE_POLICY_ENGINE=true
-ENABLE_AI_SCORING=true
-AI_RISK_THRESHOLD=70
-`;
+    let envContent = '';
+    for (const [key, value] of Object.entries(newEnv)) {
+        envContent += `${key}=${value}\n`;
+    }
 
     fs.writeFileSync(backendEnvPath, envContent);
     console.log("\n💾 Deployment info saved:");

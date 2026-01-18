@@ -44,9 +44,9 @@ export function EvidenceVault() {
                 source: e.source,
                 collectedBy: e.collectedBy,
                 date: new Date(e.timestamp).toLocaleDateString(),
-                status: 'verified', // Backend validates blockchain status
+                status: e.status || 'verified', // Use backend status, fallback to verified if missing
                 hash: e.evidenceHash,
-                size: (e.fileSize / 1024 / 1024).toFixed(2) + ' MB',
+                size: e.fileSize ? (e.fileSize / 1024 / 1024).toFixed(2) + ' MB' : 'N/A',
                 txHash: e.txHash,
                 storagePath: e.storagePath,
                 aiAnalysis: e.aiAnalysis
@@ -75,6 +75,36 @@ export function EvidenceVault() {
         }
     };
 
+    const handleExportReport = () => {
+        if (!evidenceList.length) {
+            alert('No evidence to export');
+            return;
+        }
+
+        const headers = ['Evidence ID', 'Type', 'Source', 'Collected By', 'Date', 'Status', 'Hash', 'Transaction ID'];
+        const csvContent = [
+            headers.join(','),
+            ...evidenceList.map(item => [
+                item.id,
+                item.type,
+                `"${item.source}"`, // Quote source to handle commas
+                item.collectedBy,
+                item.date,
+                item.status,
+                item.hash,
+                item.txHash || 'N/A'
+            ].join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `evidence-report-${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+    };
+
     const fetchTamperEvents = async (id: string) => {
         try {
             const res = await api.getTamperEvents(id);
@@ -100,7 +130,7 @@ export function EvidenceVault() {
                     <p className="text-slate-500 dark:text-slate-400 mt-2">Secure storage and management of evidential assets.</p>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline"> <Download className="w-4 h-4 mr-2" /> Export Report</Button>
+                    <Button variant="outline" onClick={handleExportReport}> <Download className="w-4 h-4 mr-2" /> Export Report</Button>
                 </div>
             </div>
 
@@ -117,13 +147,21 @@ export function EvidenceVault() {
                     </div>
                     <Select
                         label="All Types"
-                        options={['Video', 'Audio', 'Document', 'Image'].map(t => ({ label: t, value: t }))}
+                        options={[
+                            { label: 'All Types', value: 'All Types' },
+                            { label: 'Video', value: 'Video' },
+                            { label: 'Audio', value: 'Audio' },
+                            { label: 'Document', value: 'Document' },
+                            { label: 'Image', value: 'Image' },
+                            { label: 'Application', value: 'Application' }
+                        ]}
                         value={typeFilter}
                         onChange={e => setTypeFilter(e.target.value)}
                     />
                     <Select
                         label="All Statuses"
                         options={[
+                            { label: 'All Statuses', value: 'All Statuses' },
                             { label: 'Verified', value: 'verified' },
                             { label: 'Flagged', value: 'flagged' },
                             { label: 'Breached', value: 'breached' }
@@ -135,40 +173,42 @@ export function EvidenceVault() {
             </Card>
 
             <Card className="dark:bg-slate-900 dark:border-slate-800">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead className="dark:text-slate-200">Evidence ID</TableHead>
-                            <TableHead className="dark:text-slate-200">Type</TableHead>
-                            <TableHead className="dark:text-slate-200">Source</TableHead>
-                            <TableHead className="dark:text-slate-200">Collected By</TableHead>
-                            <TableHead className="dark:text-slate-200">Date</TableHead>
-                            <TableHead className="dark:text-slate-200">Integrity Status</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {loading ? (
-                            <TableRow><TableCell colSpan={6} className="text-center py-8">Loading evidence records...</TableCell></TableRow>
-                        ) : evidenceList.map((item) => (
-                            <TableRow
-                                key={item.id}
-                                className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 dark:border-slate-800 transition-colors"
-                                onClick={() => setSelectedEvidence(item)}
-                            >
-                                <TableCell className="font-medium font-mono text-xs dark:text-slate-300">{item.id}</TableCell>
-                                <TableCell className="dark:text-slate-300">{item.type}</TableCell>
-                                <TableCell className="dark:text-slate-300">{item.source}</TableCell>
-                                <TableCell className="dark:text-slate-300">{item.collectedBy}</TableCell>
-                                <TableCell className="dark:text-slate-300">{item.date}</TableCell>
-                                <TableCell>
-                                    <Badge variant={item.status === 'verified' ? 'success' : item.status === 'flagged' ? 'warning' : 'danger'}>
-                                        {item.status.toUpperCase()}
-                                    </Badge>
-                                </TableCell>
+                <div className="overflow-x-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="dark:text-slate-200 whitespace-nowrap">Evidence ID</TableHead>
+                                <TableHead className="dark:text-slate-200">Type</TableHead>
+                                <TableHead className="dark:text-slate-200">Source</TableHead>
+                                <TableHead className="dark:text-slate-200 whitespace-nowrap">Collected By</TableHead>
+                                <TableHead className="dark:text-slate-200">Date</TableHead>
+                                <TableHead className="dark:text-slate-200 whitespace-nowrap">Integrity Status</TableHead>
                             </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                        </TableHeader>
+                        <TableBody>
+                            {loading ? (
+                                <TableRow><TableCell colSpan={6} className="text-center py-8">Loading evidence records...</TableCell></TableRow>
+                            ) : evidenceList.map((item) => (
+                                <TableRow
+                                    key={item.id}
+                                    className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 dark:border-slate-800 transition-colors"
+                                    onClick={() => setSelectedEvidence(item)}
+                                >
+                                    <TableCell className="font-medium font-mono text-xs dark:text-slate-300 whitespace-nowrap">{item.id}</TableCell>
+                                    <TableCell className="dark:text-slate-300">{item.type}</TableCell>
+                                    <TableCell className="dark:text-slate-300 whitespace-nowrap">{item.source}</TableCell>
+                                    <TableCell className="dark:text-slate-300 whitespace-nowrap">{item.collectedBy}</TableCell>
+                                    <TableCell className="dark:text-slate-300 whitespace-nowrap">{item.date}</TableCell>
+                                    <TableCell>
+                                        <Badge variant={item.status === 'verified' ? 'success' : item.status === 'flagged' ? 'warning' : 'danger'}>
+                                            {item.status.toUpperCase()}
+                                        </Badge>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
             </Card>
 
             <Dialog

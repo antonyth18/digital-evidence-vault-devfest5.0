@@ -102,11 +102,13 @@ async function getEvidence(filters = {}) {
             query = query.or(`evidence_id.ilike.%${filters.search}%,collected_by.ilike.%${filters.search}%,case_id.ilike.%${filters.search}%`);
         }
 
-        if (filters.type && filters.type !== 'all') {
-            query = query.eq('evidence_type', filters.type);
+        if (filters.type && filters.type !== 'all' && filters.type !== 'All Types') {
+            // Case-insensitive matching for evidence type
+            query = query.ilike('evidence_type', filters.type);
         }
 
-        // Add more filters as needed
+        // Remove status filter here as it requires derived logic (tamper alerts)
+        // We will filter in server.js after aggregating data.
 
         const { data, error } = await query;
         if (error) throw error;

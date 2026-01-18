@@ -79,7 +79,7 @@ export function UploadEvidence() {
             <div className="relative">
                 {step === 1 && (
                     <Card
-                        className="border-dashed border-2 p-12 text-center hover:bg-slate-50 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:border-slate-700 transition-colors cursor-pointer group"
+                        className="border-dashed border-2 p-6 md:p-12 text-center hover:bg-slate-50 dark:hover:bg-slate-800/50 dark:bg-slate-900 dark:border-slate-700 transition-colors cursor-pointer group"
                         onClick={() => fileInputRef.current?.click()}
                     >
                         <input

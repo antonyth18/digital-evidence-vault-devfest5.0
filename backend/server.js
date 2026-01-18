@@ -516,21 +516,44 @@ app.get('/api/evidence', async (req, res) => {
                 status: req.query.status
             };
 
+            // 1. Get raw evidence
             const evidence = await supabaseService.getEvidence(filters);
 
-            // Map DB format to frontend format
-            const mappedEvidence = evidence.map(e => ({
-                evidenceId: e.evidence_id,
-                evidenceType: e.evidence_type,
-                source: e.source,
-                collectedBy: e.collected_by || e.collectedBy, // fallback
-                timestamp: e.created_at,
-                evidenceHash: e.sha256_hash,
-                fileSize: e.file_size,
-                txHash: e.tx_hash,
-                storagePath: e.storage_path,
-                aiAnalysis: e.ai_analysis
-            }));
+            // 2. Get all tamper alerts for status derivation
+            const alerts = tamperLedgerService.getAllTamperEvents();
+
+            // 3. Map and derive status
+            let mappedEvidence = evidence.map(e => {
+                // Determine status
+                let status = 'verified';
+
+                // Check for breaches
+                const isBreached = alerts.some(a => a.evidenceId === e.evidence_id && a.detectedBy === 'VERIFICATION');
+                if (isBreached) {
+                    status = 'breached';
+                } else if (e.ai_analysis && e.ai_analysis.riskScore > (process.env.AI_RISK_THRESHOLD || 70)) {
+                    status = 'flagged';
+                }
+
+                return {
+                    evidenceId: e.evidence_id,
+                    evidenceType: e.evidence_type,
+                    source: e.source,
+                    collectedBy: e.collected_by || e.collectedBy, // fallback
+                    timestamp: e.created_at,
+                    evidenceHash: e.sha256_hash,
+                    fileSize: e.file_size,
+                    txHash: e.tx_hash,
+                    storagePath: e.storage_path,
+                    aiAnalysis: e.ai_analysis,
+                    status: status
+                };
+            });
+
+            // 4. Apply status filter in memory
+            if (filters.status && filters.status !== 'all' && filters.status !== 'All Statuses') {
+                mappedEvidence = mappedEvidence.filter(e => e.status === filters.status);
+            }
 
             res.json({ success: true, evidence: mappedEvidence });
         } else {
@@ -572,28 +595,39 @@ app.get('/api/evidence/:id/download', async (req, res) => {
  * Get analytics summary
  * GET /api/analytics/summary
  */
-app.get('/api/analytics/summary', (req, res) => {
+app.get('/api/analytics/summary', async (req, res) => {
     try {
-        const evidence = evidenceStorage.getAllEvidence();
+        // Prefer Supabase if available
+        let evidence = [];
+        if (supabaseReady) {
+            evidence = await supabaseService.getEvidence({});
+        } else {
+            evidence = evidenceStorage.getAllEvidence();
+        }
+
         const total = evidence.length;
 
         const alerts = tamperLedgerService.getAllTamperEvents();
         const activeAlerts = alerts.filter(a => a.riskScore >= 70).length;
         const custodyBreaches = alerts.filter(a => a.detectedBy === 'VERIFICATION').length;
 
+        // Map evidence for recent activity (handle both DB and in-memory formats)
+        const recentActivity = evidence.slice(0, 5).map(e => ({
+            id: e.evidence_id || e.evidenceId,
+            action: 'Uploaded',
+            actor: e.collected_by || e.collectedBy,
+            timestamp: e.created_at || e.timestamp
+        }));
+
         res.json({
             totalEvidence: total,
-            verifiedSafe: total - activeAlerts,
+            verifiedSafe: Math.max(0, total - activeAlerts - custodyBreaches),
             activeAlerts: activeAlerts,
             custodyBreaches: custodyBreaches,
-            recentActivity: evidence.slice(0, 5).map(e => ({
-                id: e.evidenceId,
-                action: 'Uploaded',
-                actor: e.collectedBy,
-                timestamp: e.timestamp
-            }))
+            recentActivity: recentActivity
         });
     } catch (error) {
+        console.error('Analytics summary error:', error);
         res.status(500).json({ error: 'Failed to retrieve analytics summary' });
     }
 });
