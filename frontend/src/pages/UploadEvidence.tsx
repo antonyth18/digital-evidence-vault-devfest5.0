@@ -1,9 +1,10 @@
 import { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import { AIAnalysisResult } from '../components/evidence/AIAnalysisResult';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { useToast } from '../components/ui/Toast';
-import { Upload, FileText, CheckCircle, Loader2, X, AlertTriangle } from 'lucide-react';
+import { Upload, FileText, CheckCircle, Loader2, X } from 'lucide-react';
 import { api } from '../utils/api';
 
 
@@ -146,12 +147,14 @@ export function UploadEvidence() {
                                 />
                             </div>
 
-                            {aiAnalysis && aiAnalysis.riskScore > 30 && (
-                                <div className={`p-4 rounded-md text-sm flex gap-3 ${aiAnalysis.riskScore > 70 ? 'bg-red-50 border border-red-200 text-red-800' : 'bg-amber-50 border border-amber-200 text-amber-800'}`}>
-                                    <div className="mt-0.5"><AlertTriangle className="w-4 h-4" /></div>
-                                    <div>
-                                        <strong>AI Warning:</strong> {aiAnalysis.explanation} (Risk Score: {aiAnalysis.riskScore}/100)
-                                    </div>
+                            {aiAnalysis && (
+                                <div className="animate-in fade-in slide-in-from-top-4 duration-500">
+                                    <AIAnalysisResult
+                                        riskScore={aiAnalysis.riskScore}
+                                        manipulationProbability={aiAnalysis.manipulationProbability}
+                                        signals={aiAnalysis.signals || []}
+                                        explanation={aiAnalysis.explanation}
+                                    />
                                 </div>
                             )}
                             <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md p-4 text-sm text-amber-800 dark:text-amber-200 flex gap-3">

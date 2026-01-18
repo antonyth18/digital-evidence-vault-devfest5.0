@@ -23,8 +23,8 @@ export function Dialog({ isOpen, onClose, title, description, children }: Dialog
             />
 
             {/* Content */}
-            <div className={cn("relative z-50 w-full max-w-lg scale-100 gap-4 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-lg sm:rounded-lg animate-in fade-in-0 zoom-in-95 duration-200")}>
-                <div className="flex flex-col space-y-1.5 text-center sm:text-left">
+            <div className={cn("relative z-50 w-full max-w-lg scale-100 gap-4 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-lg sm:rounded-lg animate-in fade-in-0 zoom-in-95 duration-200 max-h-[80vh] flex flex-col")}>
+                <div className="flex flex-col space-y-1.5 text-center sm:text-left flex-shrink-0">
                     <div className="flex justify-between items-center">
                         <h2 className="text-lg font-semibold leading-none tracking-tight dark:text-white">{title}</h2>
                         <button onClick={onClose} className="opacity-70 ring-offset-white dark:ring-offset-slate-900 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-slate-950 dark:focus:ring-slate-300 focus:ring-offset-2 dark:text-slate-400 dark:hover:text-white">
@@ -34,7 +34,7 @@ export function Dialog({ isOpen, onClose, title, description, children }: Dialog
                     </div>
                     {description && <p className="text-sm text-slate-500 dark:text-slate-400">{description}</p>}
                 </div>
-                <div className="mt-4">
+                <div className="mt-4 overflow-y-auto pr-2">
                     {children}
                 </div>
             </div>

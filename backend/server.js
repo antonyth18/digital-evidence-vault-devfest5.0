@@ -118,8 +118,34 @@ app.post('/api/evidence/upload-blockchain', upload.single('file'), async (req, r
                 storage_url: storageData.url,
                 tx_hash: result.txHash,
                 block_number: result.blockNumber,
-                gas_used: result.gasUsed ? result.gasUsed.toString() : '0'
+                block_number: result.blockNumber,
+                gas_used: result.gasUsed ? result.gasUsed.toString() : '0',
+                ai_analysis: null
             };
+
+            // 5. Run AI Risk Scoring (Server-side verification)
+            try {
+                if (process.env.ENABLE_AI_SCORING !== 'false') {
+                    const aiMetadata = {
+                        fileName: req.file.originalname,
+                        fileSize: req.file.size,
+                        mimeType: req.file.mimetype,
+                        uploadTime: Date.now()
+                    };
+                    const analysis = await aiRiskScoring.analyzeEvidence(req.file.buffer, aiMetadata);
+                    evidenceMetadata.ai_analysis = {
+                        riskScore: analysis.riskScore,
+                        manipulationProbability: analysis.manipulationProbability,
+                        signals: analysis.signals,
+                        explanation: analysis.explanation,
+                        details: analysis.details
+                    };
+                    console.log(`🤖 AI Verification: Score ${analysis.riskScore}/100`);
+                }
+            } catch (aiError) {
+                console.error('⚠️ AI Analysis failed during upload:', aiError.message);
+                // We don't fail the upload, just log it
+            }
 
             console.log('✅ Evidence registered:', evidenceMetadata.evidence_id);
 
@@ -502,7 +528,8 @@ app.get('/api/evidence', async (req, res) => {
                 evidenceHash: e.sha256_hash,
                 fileSize: e.file_size,
                 txHash: e.tx_hash,
-                storagePath: e.storage_path
+                storagePath: e.storage_path,
+                aiAnalysis: e.ai_analysis
             }));
 
             res.json({ success: true, evidence: mappedEvidence });

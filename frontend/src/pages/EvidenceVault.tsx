@@ -8,6 +8,7 @@ import { Select } from '../components/ui/Select';
 import { Dialog } from '../components/ui/Dialog';
 import { Search, ShieldCheck, Download, History } from 'lucide-react';
 import { api } from '../utils/api';
+import { AIAnalysisResult } from '../components/evidence/AIAnalysisResult';
 
 export function EvidenceVault() {
     const [search, setSearch] = useState('');
@@ -47,7 +48,8 @@ export function EvidenceVault() {
                 hash: e.evidenceHash,
                 size: (e.fileSize / 1024 / 1024).toFixed(2) + ' MB',
                 txHash: e.txHash,
-                storagePath: e.storagePath
+                storagePath: e.storagePath,
+                aiAnalysis: e.aiAnalysis
             }));
             setEvidenceList(mapped);
         } catch (error) {
@@ -57,7 +59,7 @@ export function EvidenceVault() {
         }
     };
 
-    const handleDownload = async (id: string, fileName: string) => {
+    const handleDownload = async (id: string) => {
         try {
             const res = await api.getDownloadUrl(id);
             if (res.success && res.url) {
@@ -176,14 +178,14 @@ export function EvidenceVault() {
             >
                 {selectedEvidence && (
                     <div className="space-y-6">
-                        <div className="flex items-center justify-between bg-slate-50 p-4 rounded-lg border border-slate-100">
+                        <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-800/50 p-4 rounded-lg border border-slate-100 dark:border-slate-800">
                             <div className="flex items-center gap-3">
-                                <div className="h-10 w-10 bg-white rounded-full border border-slate-200 flex items-center justify-center">
+                                <div className="h-10 w-10 bg-white dark:bg-slate-800 rounded-full border border-slate-200 dark:border-slate-700 flex items-center justify-center">
                                     <ShieldCheck className="w-5 h-5 text-emerald-500" />
                                 </div>
                                 <div>
-                                    <h4 className="font-bold text-slate-900">{selectedEvidence.id}</h4>
-                                    <p className="text-xs text-slate-500">Anchored on Ethereum</p>
+                                    <h4 className="font-bold text-slate-900 dark:text-white">{selectedEvidence.id}</h4>
+                                    <p className="text-xs text-slate-500 dark:text-slate-400">Anchored on Ethereum</p>
                                 </div>
                             </div>
                             <Badge variant={selectedEvidence.status === 'verified' ? 'success' : 'danger'}>
@@ -193,35 +195,46 @@ export function EvidenceVault() {
 
                         <div className="grid grid-cols-2 gap-4 text-sm">
                             <div className="space-y-1">
-                                <span className="text-slate-500 text-xs uppercase tracking-wider">Type</span>
-                                <p className="font-medium">{selectedEvidence.type}</p>
+                                <span className="text-slate-500 text-xs uppercase tracking-wider dark:text-slate-400">Type</span>
+                                <p className="font-medium dark:text-white">{selectedEvidence.type}</p>
                             </div>
                             <div className="space-y-1">
-                                <span className="text-slate-500 text-xs uppercase tracking-wider">File Size</span>
-                                <p className="font-medium">{selectedEvidence.size}</p>
+                                <span className="text-slate-500 text-xs uppercase tracking-wider dark:text-slate-400">File Size</span>
+                                <p className="font-medium dark:text-white">{selectedEvidence.size}</p>
                             </div>
                             <div className="space-y-1">
-                                <span className="text-slate-500 text-xs uppercase tracking-wider">Source</span>
-                                <p className="font-medium">{selectedEvidence.source}</p>
+                                <span className="text-slate-500 text-xs uppercase tracking-wider dark:text-slate-400">Source</span>
+                                <p className="font-medium dark:text-white">{selectedEvidence.source}</p>
                             </div>
                             <div className="space-y-1">
-                                <span className="text-slate-500 text-xs uppercase tracking-wider">Collector</span>
-                                <p className="font-medium">{selectedEvidence.collectedBy}</p>
+                                <span className="text-slate-500 text-xs uppercase tracking-wider dark:text-slate-400">Collector</span>
+                                <p className="font-medium dark:text-white">{selectedEvidence.collectedBy}</p>
                             </div>
                             <div className="space-y-1 col-span-2">
-                                <span className="text-slate-500 text-xs uppercase tracking-wider">Blockchain Transaction ID</span>
-                                <p className="font-mono text-xs text-slate-400 break-all bg-slate-50 dark:bg-slate-800 p-2 rounded mt-1 border border-slate-100 dark:border-slate-800">
+                                <span className="text-slate-500 text-xs uppercase tracking-wider dark:text-slate-400">Blockchain Transaction ID</span>
+                                <p className="font-mono text-xs text-slate-400 break-all bg-slate-50 dark:bg-slate-800 p-2 rounded mt-1 border border-slate-100 dark:border-slate-800 dark:text-slate-300">
                                     {selectedEvidence?.txHash || 'N/A'}
                                 </p>
                             </div>
                         </div>
 
                         <div className="space-y-2">
-                            <span className="text-slate-500 text-xs uppercase tracking-wider">Cryptographic Hash</span>
-                            <div className="bg-slate-100 p-3 rounded font-mono text-xs break-all border border-slate-200 text-slate-600">
+                            <span className="text-slate-500 text-xs uppercase tracking-wider dark:text-slate-400">Cryptographic Hash</span>
+                            <div className="bg-slate-100 dark:bg-slate-800 p-3 rounded font-mono text-xs break-all border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-100">
                                 {selectedEvidence.hash}
                             </div>
                         </div>
+
+                        {selectedEvidence.aiAnalysis && (
+                            <div className="pt-2">
+                                <AIAnalysisResult
+                                    riskScore={selectedEvidence.aiAnalysis.riskScore}
+                                    manipulationProbability={selectedEvidence.aiAnalysis.manipulationProbability}
+                                    signals={selectedEvidence.aiAnalysis.signals || []}
+                                    explanation={selectedEvidence.aiAnalysis.explanation}
+                                />
+                            </div>
+                        )}
 
                         {tamperEvents.length > 0 && (
                             <div className="space-y-3 pt-2">
@@ -244,7 +257,7 @@ export function EvidenceVault() {
 
                         <div className="flex justify-end gap-2 pt-2">
                             <Button variant="outline" onClick={() => setSelectedEvidence(null)}>Close</Button>
-                            <Button variant="outline" onClick={() => handleDownload(selectedEvidence.id, `evidence-${selectedEvidence.id}`)}>
+                            <Button variant="outline" onClick={() => handleDownload(selectedEvidence.id)}>
                                 <Download className="w-4 h-4 mr-2" /> Download File
                             </Button>
                             <Button onClick={() => {
