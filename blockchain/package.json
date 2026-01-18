@@ -1,0 +1,21 @@
+{
+    "name": "evidence-vault-blockchain",
+    "version": "1.0.0",
+    "description": "Blockchain layer for Digital Evidence Vault",
+    "scripts": {
+        "compile": "hardhat compile",
+        "test": "hardhat test",
+        "deploy:local": "hardhat run scripts/deploy.js --network localhost",
+        "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia",
+        "deploy:polygon": "hardhat run scripts/deploy.js --network polygon",
+        "node": "hardhat node"
+    },
+    "devDependencies": {
+        "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+        "hardhat": "^2.19.0"
+    },
+    "dependencies": {
+        "@openzeppelin/contracts": "^5.0.0",
+        "dotenv": "^16.3.1"
+    }
+}

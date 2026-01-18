@@ -1,0 +1,28 @@
+[
+  {
+    "evidenceId": "2",
+    "fileName": "state_v._franco.pdf",
+    "fileSize": 178421,
+    "evidenceType": "application",
+    "source": "Web Portal",
+    "collectedBy": "Magno D. Franco",
+    "caseId": "298732",
+    "evidenceHash": "0x07c489767024d6758c3a02a27e0f8259a981fcc4c4405ce038558c30f2882f13",
+    "txHash": "0xe6d90e10543c41677c9549fe018e3236ebf7fd9dd3814c060582f52ceede13af",
+    "blockNumber": 15,
+    "timestamp": "2026-01-17T17:59:10.937Z"
+  },
+  {
+    "evidenceId": "1",
+    "fileName": "in_re_m.a. (1).pdf",
+    "fileSize": 238407,
+    "evidenceType": "application",
+    "source": "Web Portal",
+    "collectedBy": "Officer John Doe (894421)",
+    "caseId": "894JJD99",
+    "evidenceHash": "0xb45bc17d014f1219fc1ad0b55863770d32b822c601a4f44c6df921c8b5a28cab",
+    "txHash": "0xbddca9adaf1d9df267eced7a103435cd7dc19a3dc0a6351c310451c1a0207c5b",
+    "blockNumber": 10,
+    "timestamp": "2026-01-17T15:01:52.707Z"
+  }
+]
