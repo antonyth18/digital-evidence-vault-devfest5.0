@@ -305,7 +305,7 @@ export function EvidenceVault() {
                                     evidenceId: selectedEvidence.id,
                                     hash: selectedEvidence.hash,
                                     transaction: selectedEvidence.txHash,
-                                    network: "Digital Evidence Vault v1.0 (Local Genesis)",
+                                    network: "Sentinel v1.0 (Sepolia)",
                                     timestamp: selectedEvidence.date,
                                     status: "Anchored & Immutable"
                                 };
