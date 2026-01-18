@@ -711,9 +711,14 @@ app.get('/api/audit-log', async (req, res) => {
 // ============================================
 
 // Analytics endpoints
-app.get('/api/analytics/status', (req, res) => {
+app.get('/api/analytics/status', async (req, res) => {
     try {
-        const evidence = evidenceStorage.getAllEvidence();
+        let evidence = [];
+        if (supabaseReady) {
+            evidence = await supabaseService.getEvidence({});
+        } else {
+            evidence = evidenceStorage.getAllEvidence();
+        }
         const alerts = tamperLedgerService.getAllTamperEvents();
         const total = evidence.length;
 
@@ -731,9 +736,14 @@ app.get('/api/analytics/status', (req, res) => {
     }
 });
 
-app.get('/api/analytics/trends', (req, res) => {
+app.get('/api/analytics/trends', async (req, res) => {
     try {
-        const evidence = evidenceStorage.getAllEvidence();
+        let evidence = [];
+        if (supabaseReady) {
+            evidence = await supabaseService.getEvidence({});
+        } else {
+            evidence = evidenceStorage.getAllEvidence();
+        }
         const data = [];
         for (let i = 6; i >= 0; i--) {
             const date = new Date();
@@ -745,7 +755,7 @@ app.get('/api/analytics/trends', (req, res) => {
             const dayEnd = new Date(date.setHours(23, 59, 59, 999)).getTime();
 
             const count = evidence.filter(e => {
-                const ts = new Date(e.timestamp).getTime();
+                const ts = new Date(e.created_at || e.timestamp).getTime();
                 return ts >= dayStart && ts <= dayEnd;
             }).length;
 
@@ -760,13 +770,18 @@ app.get('/api/analytics/trends', (req, res) => {
     }
 });
 
-app.get('/api/analytics/collectors', (req, res) => {
+app.get('/api/analytics/collectors', async (req, res) => {
     try {
-        const evidence = evidenceStorage.getAllEvidence();
+        let evidence = [];
+        if (supabaseReady) {
+            evidence = await supabaseService.getEvidence({});
+        } else {
+            evidence = evidenceStorage.getAllEvidence();
+        }
         const collectorCounts = {};
 
         evidence.forEach(e => {
-            const collector = e.collectedBy || 'Unknown';
+            const collector = e.collected_by || e.collectedBy || 'Unknown';
             collectorCounts[collector] = (collectorCounts[collector] || 0) + 1;
         });
 
